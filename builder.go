@@ -34,10 +34,11 @@ import (
 // Set headers with Header or set conventional header keys with Accept,
 // CacheControl, ContentType, UserAgent, BasicAuth, and Bearer.
 //
-// Set the http.Client to use for a request with Client.
-//
 // Set the body of the request if any with GetBody or use built in BodyBytes,
 // BodyJSON, BodyForm, or BodyReader.
+//
+// Set the http.Client to use for a request with Client and/or set an
+// http.RoundTripper with Transport.
 //
 // Add a response validator to the Builder with AddValidator or use the built
 // in CheckStatus, CheckContentType, and Peek.
@@ -61,6 +62,7 @@ type Builder struct {
 	body         BodyGetter
 	method       string
 	cl           *http.Client
+	rt           http.RoundTripper
 	validators   []ResponseHandler
 	handler      ResponseHandler
 }
@@ -80,6 +82,13 @@ func URL(baseurl string) *Builder {
 // Client sets the http.Client to use for requests. If nil, it uses http.DefaultClient.
 func (rb *Builder) Client(cl *http.Client) *Builder {
 	rb.cl = cl
+	return rb
+}
+
+// Transports sets the http.RoundTripper to use for requests.
+// If set, it makes a shallow copy of the http.Client before modifying it.
+func (rb *Builder) Transport(rt http.RoundTripper) *Builder {
+	rb.rt = rt
 	return rb
 }
 
@@ -576,6 +585,11 @@ func (rb *Builder) Do(req *http.Request) (err error) {
 	cl := http.DefaultClient
 	if rb.cl != nil {
 		cl = rb.cl
+	}
+	if rb.rt != nil {
+		cl2 := *cl
+		cl2.Transport = rb.rt
+		cl = &cl2
 	}
 	res, err := cl.Do(req)
 	if err != nil {
